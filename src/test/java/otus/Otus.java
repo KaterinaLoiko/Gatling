@@ -1,10 +1,12 @@
 package otus;
 
 import io.gatling.javaapi.core.*;
-import static io.gatling.javaapi.core.CoreDsl.rampUsers;
-import static io.gatling.javaapi.core.CoreDsl.regex;
+
+import static io.gatling.javaapi.core.CoreDsl.incrementUsersPerSec;
 import static io.gatling.javaapi.core.CoreDsl.scenario;
 import io.gatling.javaapi.http.*;
+
+import java.time.Duration;
 
 import static io.gatling.javaapi.http.HttpDsl.*;
 import static otus.Actions.login;
@@ -24,17 +26,24 @@ public class Otus extends Simulation {
 
   ScenarioBuilder scn = scenario("Web Tours User Journey")
       .exec(openHomePage)
+      .pause(5)
       .exec(login("eloiko", "eloiko"))
+      .pause(5)
       .exec(searchFlightsScenario)
+      .pause(5)
       .exec(paymentScenario)
-      .exec(returnToHomeScenario)
-      .pause(1);
+      .pause(5)
+      .exec(returnToHomeScenario);
 
   {
     setUp(
         scn.injectOpen(
-            rampUsers(1).during(10) // 5 пользователей за 10 секунд
-        )
-    ).protocols(httpProtocol);
+                incrementUsersPerSec(1)
+                        .times(6)
+                        .eachLevelLasting(Duration.ofMinutes(5))
+                        .separatedByRampsLasting(Duration.ofSeconds(15))
+                        .startingFrom(0)
+    ).protocols(httpProtocol)
+    ).maxDuration(Duration.ofMinutes(60));
   }
 }
