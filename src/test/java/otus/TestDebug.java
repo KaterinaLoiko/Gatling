@@ -1,50 +1,37 @@
 package otus;
 
-import io.gatling.javaapi.core.ScenarioBuilder;
+import io.gatling.javaapi.core.OpenInjectionStep;
 import io.gatling.javaapi.core.Simulation;
-import io.gatling.javaapi.http.HttpProtocolBuilder;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.gatling.javaapi.core.CoreDsl.*;
-import static io.gatling.javaapi.http.HttpDsl.http;
-import static otus.Actions.*;
+import static otus.Otus.HTTP_PROTOCOL;
+import static otus.Scenario.createScenario;
 
 public class TestDebug extends Simulation {
 
-    double peakRps = 15.0; // в 10:33 на 20.0 в testdebug-20260428084406308/index.html отказ, последняя стабильная 15
-    double step = peakRps * 0.1;
-
-    private static final HttpProtocolBuilder httpProtocol = http
-            .baseUrl("http://webtours.load-test.ru:1080")
-            .acceptHeader("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            .acceptLanguageHeader("ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3")
-            .acceptEncodingHeader("gzip, deflate")
-            .userAgentHeader("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0");
-
-    ScenarioBuilder scn = scenario("Web Tours User Journey")
-            .exec(openHomePage)
-            .pause(5)
-            .exec(login("eloiko", "eloiko"))
-            .pause(5)
-            .exec(searchFlightsScenario)
-            .pause(5)
-            .exec(paymentScenario)
-            .pause(5)
-            .exec(returnToHomeScenario);
-
     {
+        double PEAK_USERS_PER_SEC = 7.0;   // максимум пользователей из калиборовки 7, но при 7 на 6 ступени начинают расти ошибки (testdebug-20260507144052555/index.html)
+        double stepUsers = PEAK_USERS_PER_SEC * 0.1;
+        int steps = 10;
+        Duration levelDuration = Duration.ofMinutes(3);
+        Duration rampDuration = Duration.ofSeconds(15);
+
+        List<OpenInjectionStep> injectionSteps = new ArrayList<>();
+
+        for (int i = 1; i <= steps; i++) {
+            double targetUsers = stepUsers * i;
+            injectionSteps.add(constantUsersPerSec(targetUsers).during(levelDuration));
+            if (i < steps) {
+                injectionSteps.add(nothingFor(rampDuration));
+            }
+        }
+
         setUp(
-                scn.injectOpen(
-                        constantUsersPerSec(step).during(Duration.ofMinutes(5)),
-                        nothingFor(Duration.ofSeconds(5)),
-                        constantUsersPerSec(2*step).during(Duration.ofMinutes(5)),
-                        nothingFor(Duration.ofSeconds(5)),
-                        constantUsersPerSec(3*step).during(Duration.ofMinutes(5)),
-                        nothingFor(Duration.ofSeconds(5)),
-                        constantUsersPerSec(4*step).during(Duration.ofMinutes(5))
-//                        rampUsersPerSec(step).to(peakRps).during(Duration.ofMinutes(20))
-                ).protocols(httpProtocol)
-        );
+                createScenario().injectOpen(injectionSteps).protocols(HTTP_PROTOCOL)
+        ).maxDuration(Duration.ofMinutes(35));
     }
 }

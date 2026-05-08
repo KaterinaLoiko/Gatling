@@ -1,6 +1,8 @@
 package otus;
 
 import io.gatling.javaapi.core.ChainBuilder;
+import io.gatling.javaapi.http.HttpRequestActionBuilder;
+
 import static io.gatling.javaapi.core.CoreDsl.bodyString;
 import static io.gatling.javaapi.core.CoreDsl.css;
 import static io.gatling.javaapi.core.CoreDsl.exec;
@@ -12,17 +14,16 @@ import static otus.Utils.randomFromList;
 
 public class Actions {
 
-  public static ChainBuilder openHomePage = exec(http("Open Home Page")
+  public static HttpRequestActionBuilder openHomePage = http("Open Home Page")
       .get("/cgi-bin/nav.pl?in=home")
-      .check(css("input[name='userSession']", "value").saveAs("userSession")));
+      .check(css("input[name='userSession']", "value").saveAs("userSession"));
 
-  public static ChainBuilder login(String username, String password) {
-    return exec(http("Login Request")
+  public static HttpRequestActionBuilder login(String username, String password) {
+    return http("Login Request")
         .post("/cgi-bin/login.pl")
         .formParam("userSession", "${userSession}")
         .formParam("username", username)
-        .formParam("password", password)
-    );
+        .formParam("password", password);
   }
 
   public static ChainBuilder searchFlightsScenario = group("Select Flight")
@@ -104,7 +105,7 @@ public class Actions {
               )
       );
 
-  public static ChainBuilder paymentScenario = exec(
+  public static HttpRequestActionBuilder paymentScenario =
       http("Buy Flights")
           .post("/cgi-bin/reservations.pl")
           .formParam("firstName", "Ekaterina")
@@ -124,12 +125,11 @@ public class Actions {
           .formParam("buyFlights.x", "34")
           .formParam("buyFlights.y", "5")
           .formParam("JSFormSubmit", "off")
-          .check(bodyString().transform(s -> s.contains("Reservation Made!")).is(true))
-  );
+          .check(bodyString().transform(s -> s.contains("Reservation Made!")).is(true));
 
-  public static ChainBuilder returnToHomeScenario = exec(
+  public static HttpRequestActionBuilder returnToHomeScenario =
       http("Return to Home")
           .get("/webtours/")
-          .check(status().is(200))
+          .check(status().is(200)
   );
 }
